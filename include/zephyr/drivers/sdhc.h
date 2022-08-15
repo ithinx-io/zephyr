@@ -231,6 +231,15 @@ struct sdhc_host_props {
 	bool is_spi; /*!< Is the host using SPI mode */
 };
 
+/**
+ * @typedef sdhc_interrupt_cb_t
+ * @brief SDHC card interrupt callback prototype
+ *
+ * Function prototype for SDHC card interrupt callback.
+ * @param user_data: User data, set via @ref sdhc_enable_interrupt
+ */
+typedef void (*sdhc_interrupt_cb_t)(const void *user_data);
+
 __subsystem struct sdhc_driver_api {
 	int (*reset)(const struct device *dev);
 	int (*request)(const struct device *dev,
@@ -242,6 +251,9 @@ __subsystem struct sdhc_driver_api {
 	int (*card_busy)(const struct device *dev);
 	int (*get_host_props)(const struct device *dev,
 				struct sdhc_host_props *props);
+	int (*enable_interrupt)(const struct device *dev,
+				sdhc_interrupt_cb_t callback, void *user_data);
+	int (*disable_interrupt)(const struct device *dev);
 };
 
 /**
@@ -428,6 +440,56 @@ static inline int z_impl_sdhc_get_host_props(const struct device *dev,
 	}
 
 	return api->get_host_props(dev, props);
+}
+
+/**
+ * @brief enable SDHC card interrupt callback
+ *
+ * Enables SDHC card interrupt, used with SDIO cards to notify host.
+ * @param dev: SDHC device
+ * @param callback: Callback called when interrupt occurs
+ * @param user_data: parameter that will be passed to callback function
+ * @retval 0 interrupt was enabled, and callback was installed
+ * @retval -ENOTSUP: controller does not support this function
+ * @retval -EIO: I/O error
+ */
+__syscall int sdhc_enable_interrupt(const struct device *dev,
+	sdhc_interrupt_cb_t callback, void *user_data);
+
+static inline int z_impl_sdhc_enable_interrupt(const struct device *dev,
+	sdhc_interrupt_cb_t callback, void *user_data)
+{
+	const struct sdhc_driver_api *api =
+		(const struct sdhc_driver_api *)dev->api;
+
+	if (!api->enable_interrupt) {
+		return -ENOSYS;
+	}
+
+	return api->enable_interrupt(dev, callback, user_data);
+}
+
+/**
+ * @brief Disable SDHC card interrupt
+ *
+ * Disables SDHC card interrupt.
+ * @param dev: SDHC device
+ * @retval 0 interrupt was disabled
+ * @retval -ENOTSUP: controller does not support this function
+ * @retval -EIO: I/O error
+ */
+__syscall int sdhc_disable_interrupt(const struct device *dev);
+
+static inline int z_impl_sdhc_disable_interrupt(const struct device *dev)
+{
+	const struct sdhc_driver_api *api =
+		(const struct sdhc_driver_api *)dev->api;
+
+	if (!api->disable_interrupt) {
+		return -ENOSYS;
+	}
+
+	return api->disable_interrupt(dev);
 }
 
 /**

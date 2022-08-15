@@ -82,6 +82,8 @@ struct usdhc_data {
 	usdhc_handle_t transfer_handle;
 	struct sdhc_io host_io;
 	struct k_mutex access_mutex;
+	sdhc_interrupt_cb_t sdio_cb;
+	void *sdio_cb_user_data;
 	uint8_t usdhc_rx_dummy[128] __aligned(32);
 #ifdef CONFIG_IMX_USDHC_DMA_SUPPORT
 	uint32_t *usdhc_dma_descriptor; /* ADMA descriptor table (noncachable) */
@@ -105,6 +107,17 @@ static void transfer_complete_cb(USDHC_Type *usdhc, usdhc_handle_t *handle,
 		data->transfer_status |= TRANSFER_CMD_COMPLETE;
 	}
 	k_sem_give(&data->transfer_sem);
+}
+
+
+static void sdio_interrupt_cb(USDHC_Type *usdhc, void *user_data)
+{
+	const struct device *dev = (const struct device *)user_data;
+	struct usdhc_data *data = dev->data;
+
+	if (data->sdio_cb) {
+		data->sdio_cb(data->sdio_cb_user_data);
+	}
 }
 
 static int imx_usdhc_dat3_pull(const struct usdhc_config *cfg, bool pullup)
@@ -601,7 +614,6 @@ static int imx_usdhc_request(const struct device *dev, struct sdhc_command *cmd,
 	} else {
 		request.command_timeout = K_MSEC(cmd->timeout_ms);
 	}
-
 	if (data) {
 		host_data.blockSize = data->block_size;
 		host_data.blockCount = data->blocks;
@@ -775,6 +787,43 @@ static int imx_usdhc_get_host_props(const struct device *dev,
 	return 0;
 }
 
+/*
+ * Enable SDHC card interrupt
+ */
+static int imx_usdhc_enable_interrupt(const struct device *dev,
+	sdhc_interrupt_cb_t callback, void *user_data)
+{
+	const struct usdhc_config *cfg = dev->config;
+	struct usdhc_data *data = dev->data;
+
+	if (callback == NULL) {
+		return -EINVAL;
+	}
+	/* Record SDIO callback parameters */
+	data->sdio_cb = callback;
+	data->sdio_cb_user_data = user_data;
+
+	/* Enable SDIO card interrupt */
+	USDHC_EnableInterruptStatus(cfg->base, kUSDHC_CardInterruptFlag);
+	USDHC_EnableInterruptSignal(cfg->base, kUSDHC_CardInterruptFlag);
+	return 0;
+}
+
+static int imx_usdhc_disable_interrupt(const struct device *dev)
+{
+	const struct usdhc_config *cfg = dev->config;
+	struct usdhc_data *data = dev->data;
+
+	/* Clear callback data */
+	data->sdio_cb = NULL;
+	data->sdio_cb_user_data = NULL;
+
+	/* Disable SDIO card interrupt */
+	USDHC_DisableInterruptStatus(cfg->base, kUSDHC_CardInterruptFlag);
+	USDHC_DisableInterruptSignal(cfg->base, kUSDHC_CardInterruptFlag);
+	return 0;
+}
+
 static int imx_usdhc_isr(const struct device *dev)
 {
 	const struct usdhc_config *cfg = dev->config;
@@ -795,6 +844,7 @@ static int imx_usdhc_init(const struct device *dev)
 	int ret;
 	const usdhc_transfer_callback_t callbacks = {
 		.TransferComplete = transfer_complete_cb,
+		.SdioInterrupt = sdio_interrupt_cb,
 	};
 
 	if (!device_is_ready(cfg->clock_dev)) {
@@ -847,6 +897,8 @@ static const struct sdhc_driver_api usdhc_api = {
 	.execute_tuning = imx_usdhc_execute_tuning,
 	.card_busy = imx_usdhc_card_busy,
 	.get_host_props = imx_usdhc_get_host_props,
+	.enable_interrupt = imx_usdhc_enable_interrupt,
+	.disable_interrupt = imx_usdhc_disable_interrupt,
 };
 
 #ifdef CONFIG_NOCACHE_MEMORY

@@ -298,3 +298,22 @@ bool sd_is_card_present(const struct device *sdhc_dev)
 	}
 	return sdhc_card_present(sdhc_dev) == 1;
 }
+
+/* Enables SD card interrupt */
+int sd_enable_interrupt(const struct device *sdhc_dev,
+	sdhc_interrupt_cb_t callback, void *user_data)
+{
+	if (!(sdhc_dev && callback)) {
+		return -EINVAL;
+	}
+	return sdhc_enable_interrupt(sdhc_dev, callback, user_data);
+}
+
+/* Disable SD card interrupt */
+int sd_disable_interrupt(const struct device *sdhc_dev)
+{
+	if (!sdhc_dev) {
+		return -EINVAL;
+	}
+	return sdhc_disable_interrupt(sdhc_dev);
+}

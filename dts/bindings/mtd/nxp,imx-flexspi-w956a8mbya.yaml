@@ -1,0 +1,8 @@
+# Copyright 2023 ithinx
+# SPDX-License-Identifier: Apache-2.0
+
+description: Winbond W956A8MBYA HyperRAM on NXP FlexSPI bus
+
+compatible: "nxp,imx-flexspi-w956a8mbya"
+
+include: nxp,imx-flexspi-device.yaml

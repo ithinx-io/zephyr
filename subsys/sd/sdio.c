@@ -923,6 +923,41 @@ int sdio_write_fifo(struct sdio_func *func, uint32_t reg, uint8_t *data,
 	return ret;
 }
 
+int sdio_write_blocks_fifo(struct sdio_func *func, uint32_t reg, uint8_t *data,
+	uint32_t blocks)
+{
+	int ret;
+
+	if (func->card->type == CARD_SDMMC) {
+		LOG_ERR("MMC does not support SDIO commands");
+		return -ENOTSUP;
+	}
+
+	if (func->num > 7) {
+		LOG_ERR("Invalid function number");
+		return -EINVAL;
+	}
+
+	if (!(func->card->cccr_flags & SDIO_SUPPORT_MULTIBLOCK))
+	{
+		LOG_ERR("Card does not support multi block mode");
+		return -EINVAL;
+	}
+
+	ret = k_mutex_lock(&func->card->lock, K_NO_WAIT);
+
+	if (ret) {
+		LOG_WRN("Could not get SD card mutex");
+		return -EBUSY;
+	}
+
+	ret = sdio_io_rw_extended(func->card, SDIO_IO_WRITE, func->num, reg, false, data, blocks,
+				  func->block_size);
+
+	k_mutex_unlock(&func->card->lock);
+	return ret;
+}
+
 /**
  * @brief Copy bytes from an SDIO card
  *

@@ -126,6 +126,24 @@ int sdio_write_fifo(struct sdio_func *func, uint32_t reg, uint8_t *data,
 	uint32_t len);
 
 /**
+ * @brief Write blocks to SDIO fifo
+ *
+ * Writes blocks to SDIO register, treating it as a fifo. Writes will
+ * all be done to same address.
+ * @param func: function to write to
+ * @param reg: register address of fifo
+ * @param data: data to write to fifo
+ * @param blocks: Count of blocks of data to write to card
+ * @retval 0 write succeeded
+ * @retval -EBUSY: card is busy with another request
+ * @retval -ETIMEDOUT: card write timed out
+ * @retval -EINVAL: Invalid argument
+ * @retval -EIO: I/O error
+ */
+int sdio_write_blocks_fifo(struct sdio_func *func, uint32_t reg, uint8_t *data,
+	uint32_t blocks);
+
+/**
  * @brief Copy bytes from an SDIO card
  *
  * Copies bytes from an SDIO card, starting from provided address.

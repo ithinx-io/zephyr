@@ -66,3 +66,15 @@ properties:
       Enable the host to detect an SD card via the DAT3 line of the SD card
       connection. Requires the board to define a function to pull DAT3 low or
       high using pullup/pulldown resistors.
+
+  bus-width:
+    type: int
+    required: false
+    default: 8
+    description: |
+      Maximum bus width to use for SDMMC access, defaults to the maximum
+      possible number of bus lines.
+    enum:
+      - 1
+      - 4
+      - 8

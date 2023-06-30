@@ -72,6 +72,7 @@ struct usdhc_config {
 	bool mmc_hs400_1_8v;
 	const struct pinctrl_dev_config *pincfg;
 	void (*irq_config_func)(const struct device *dev);
+	uint8_t bus_width;
 };
 
 struct usdhc_data {
@@ -203,8 +204,18 @@ static void imx_usdhc_init_host_props(const struct device *dev)
 	props->host_caps.ddr50_support = (bool)(caps.flags & kUSDHC_SupportDDR50Flag);
 	props->host_caps.sdr104_support = (bool)(caps.flags & kUSDHC_SupportSDR104Flag);
 	props->host_caps.sdr50_support = (bool)(caps.flags & kUSDHC_SupportSDR50Flag);
-	props->host_caps.bus_8_bit_support = (bool)(caps.flags & kUSDHC_Support8BitFlag);
-	props->host_caps.bus_4_bit_support = (bool)(caps.flags & kUSDHC_Support4BitFlag);
+	if(cfg->bus_width == 1) {
+		props->host_caps.bus_4_bit_support = false;
+		props->host_caps.bus_8_bit_support = false;
+	}
+	else if (cfg->bus_width == 4) {
+		props->host_caps.bus_4_bit_support = (bool)(caps.flags & kUSDHC_Support4BitFlag);
+		props->host_caps.bus_8_bit_support = false;
+	}
+	else {
+		props->host_caps.bus_8_bit_support = (bool)(caps.flags & kUSDHC_Support8BitFlag);
+		props->host_caps.bus_4_bit_support = (bool)(caps.flags & kUSDHC_Support4BitFlag);
+	}
 	props->host_caps.hs200_support = (bool)(cfg->mmc_hs200_1_8v);
 	props->host_caps.hs400_support = (bool)(cfg->mmc_hs400_1_8v);
 }
@@ -962,6 +973,7 @@ static const struct sdhc_driver_api usdhc_api = {
 		.mmc_hs400_1_8v = DT_INST_PROP(n, mmc_hs400_1_8v),              \
 		.irq_config_func = usdhc_##n##_irq_config_func,			\
 		.pincfg = PINCTRL_DT_INST_DEV_CONFIG_GET(n),			\
+		.bus_width = DT_INST_PROP(n, bus_width),			\
 	};									\
 										\
 										\
